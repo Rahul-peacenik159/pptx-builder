@@ -1,0 +1,85 @@
+name: Build PPTX
+
+on:
+  # Triggered by website-decoder via repository_dispatch
+  repository_dispatch:
+    types: [build-pptx]
+
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Domain (e.g. cyera.com)'
+        required: true
+        type: string
+      run_id:
+        description: 'Run ID (e.g. 20260418-1307)'
+        required: true
+        type: string
+      repo1:
+        description: 'Source repo (e.g. Rahul-peacenik159/website-decoder)'
+        required: true
+        type: string
+        default: 'Rahul-peacenik159/website-decoder'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Normalise inputs from either trigger type into one set of env vars
+      - name: Resolve inputs
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "domain=${{ github.event.client_payload.domain }}" >> $GITHUB_OUTPUT
+            echo "run_id=${{ github.event.client_payload.run_id }}" >> $GITHUB_OUTPUT
+            echo "repo1=${{ github.event.client_payload.repo1 }}" >> $GITHUB_OUTPUT
+          else
+            echo "domain=${{ github.event.inputs.domain }}" >> $GITHUB_OUTPUT
+            echo "run_id=${{ github.event.inputs.run_id }}" >> $GITHUB_OUTPUT
+            echo "repo1=${{ github.event.inputs.repo1 }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build PPTX
+        run: |
+          python build_pptx.py \
+            --domain "${{ steps.vars.outputs.domain }}" \
+            --run-id "${{ steps.vars.outputs.run_id }}" \
+            --repo1 "${{ steps.vars.outputs.repo1 }}"
+
+      - name: Commit PPTX
+        run: |
+          git config user.name "PPTX Builder Bot"
+          git config user.email "pptx-bot@noreply.github.com"
+          git add output/
+          git diff --staged --quiet || git commit -m "pptx: ${{ steps.vars.outputs.domain }} ${{ steps.vars.outputs.run_id }}"
+          git push
+
+      - name: Upload PPTX as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ steps.vars.outputs.domain }}-${{ steps.vars.outputs.run_id }}"
+          path: "output/${{ steps.vars.outputs.domain }}-${{ steps.vars.outputs.run_id }}.pptx"
+          retention-days: 30
