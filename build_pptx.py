@@ -63,7 +63,7 @@ def is_dark(hex_str: str) -> bool:
         return True
 
 
-def fetch_bytes(url: str, retries: int = 3) -> bytes | None:
+def fetch_bytes(url: str, retries: int = 3) -> bytes:
     for attempt in range(retries):
         try:
             r = requests.get(url, timeout=25)
@@ -77,7 +77,7 @@ def fetch_bytes(url: str, retries: int = 3) -> bytes | None:
     return None
 
 
-def fetch_screenshot(base_url: str, filename: str, cache_dir: Path) -> str | None:
+def fetch_screenshot(base_url: str, filename: str, cache_dir: Path) -> str:
     cache_dir.mkdir(parents=True, exist_ok=True)
     local = cache_dir / filename
     if local.exists():
@@ -146,7 +146,7 @@ def add_bullets(slide, items: list, left, top, width, height,
         run.font.color.rgb = c
 
 
-def add_image(slide, img_path: str | None, left, top, width, height, accent_hex: str):
+def add_image(slide, img_path, left, top, width, height, accent_hex: str):
     if img_path and Path(img_path).exists():
         try:
             # Quick validation with Pillow
